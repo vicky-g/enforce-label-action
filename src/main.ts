@@ -1,12 +1,14 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 
+import axios from 'axios'
+
 async function run() {
   try {
     console.log(`github.context: ${JSON.stringify(github.context)}`);
     const labels = github.context!.payload!.pull_request!.labels;
 
-    enforceAnyLabels(labels);
+    await enforceAnyLabels(labels);
     enforceAllLabels(labels);
     enforceBannedLabels(labels);
 
@@ -15,8 +17,8 @@ async function run() {
   }
 }
 
-function enforceAnyLabels(labels) {
-  const requiredLabelsAny: string[] = getInputArray('REQUIRED_LABELS_ANY');
+async function enforceAnyLabels(labels) {
+  const requiredLabelsAny: string[] = await getLabelsFromGH() //getInputArray('REQUIRED_LABELS_ANY');
   if (requiredLabelsAny.length > 0 && !requiredLabelsAny.some(requiredLabel => labels.find((l) => l.name === requiredLabel))) {
     const requiredLabelsAnyDescription = getInputString('REQUIRED_LABELS_ANY_DESCRIPTION', `Please select one of the required labels for this PR: ${requiredLabelsAny}`);
     core.setFailed(requiredLabelsAnyDescription);
@@ -48,6 +50,14 @@ function getInputArray(name): string[] {
 function getInputString(name, defaultValue): string {
   const rawInput = core.getInput(name, {required: false});
   return rawInput !== '' ? rawInput : defaultValue;
+}
+
+async function getLabelsFromGH(): Promise<string[]> {
+  const resp = await axios.get(
+    'https://api.github.com/repos/AudiusProject/audius-protocol/labels'
+  )
+
+  return resp.data.map(label => label.name)
 }
 
 run();
